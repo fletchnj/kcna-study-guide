@@ -14,27 +14,14 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up kubectl
-        uses: azure/setup-kubectl@v4
-        with:
-          version: 'latest'
-
-      - name: Dry-Run Manifest Validation
-        run: |
-          echo "Validating manifests with kubectl dry-run..."
-          for file in $(find . -name "*.yaml" -not -path "./.github/*"); do
-            echo "Checking $file..."
-            kubectl create --dry-run=client --validate=false -f "$file" > /dev/null
-          done
-          echo "All manifests passed kubectl client dry-run validation."
-
       - name: Install Kubeconform
         run: |
           KUBECONFORM_VERSION="v0.6.7"
+          echo "Installing Kubeconform ${KUBECONFORM_VERSION}..."
           curl -sL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" | sudo tar -xz -C /usr/local/bin kubeconform
           kubeconform -v
 
-      - name: Run Kubeconform Schema Validation
+      - name: Validate Kubernetes Manifests with Kubeconform
         run: |
-          echo "Validating Kubernetes schemas with kubeconform..."
-          find . -name "*.yaml" -not -path "./.github/*" | xargs kubeconform -summary -output text -kubernetes-version 1.30.0
+          echo "Validating all Kubernetes manifests against Kubernetes 1.30.0 schema..."
+          find . -name "*.yaml" -not -path "./.github/*" | xargs kubeconform -summary -verbose -strict -kubernetes-version 1.30.0
