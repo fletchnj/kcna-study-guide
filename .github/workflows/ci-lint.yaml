@@ -21,14 +21,20 @@ jobs:
 
       - name: Dry-Run Manifest Validation
         run: |
-          echo "Checking YAML syntax and Kubernetes schemas..."
+          echo "Validating manifests with kubectl dry-run..."
           for file in $(find . -name "*.yaml" -not -path "./.github/*"); do
-            echo "Validating $file..."
-            kubectl apply --dry-run=client -f "$file"
+            echo "Checking $file..."
+            kubectl create --dry-run=client --validate=false -f "$file" > /dev/null
           done
+          echo "All manifests passed kubectl client dry-run validation."
+
+      - name: Install Kubeconform
+        run: |
+          KUBECONFORM_VERSION="v0.6.7"
+          curl -sL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" | sudo tar -xz -C /usr/local/bin kubeconform
+          kubeconform -v
 
       - name: Run Kubeconform Schema Validation
-        uses: yannh/kubeconform-action@v0.1.0
-        with:
-          k8s-version: 'v1.30.0'
-          files: '01-configmaps/*.yaml 02-secrets/*.yaml 03-labels-and-annotations/*.yaml 04-probes/*.yaml 05-capstone-app/*.yaml'
+        run: |
+          echo "Validating Kubernetes schemas with kubeconform..."
+          find . -name "*.yaml" -not -path "./.github/*" | xargs kubeconform -summary -output text -kubernetes-version 1.30.0
