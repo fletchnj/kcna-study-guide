@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: multi-probe-production-pod
+  labels:
+    app.kubernetes.io/name: resilient-service
+    app.kubernetes.io/component: backend
+    env: production
+spec:
+  containers:
+    - name: web-api
+      image: nginx:1.25-alpine
+      ports:
+        - name: http
+          containerPort: 80
+
+      # 1. Startup Probe: Allows up to 60s for initialization before other probes activate
+      startupProbe:
+        httpGet:
+          path: /
+          port: http
+        initialDelaySeconds: 2
+        periodSeconds: 3
+        timeoutSeconds: 2
+        failureThreshold: 20
+
+      # 2. Liveness Probe: Monitors for fatal deadlock / unresponsiveness
+      livenessProbe:
+        httpGet:
+          path: /
+          port: http
+        periodSeconds: 10
+        timeoutSeconds: 3
+        failureThreshold: 3
+
+      # 3. Readiness Probe: Controls whether pod should receive incoming traffic
+      readinessProbe:
+        httpGet:
+          path: /
+          port: http
+        periodSeconds: 5
+        timeoutSeconds: 2
+        failureThreshold: 2
+        successThreshold: 1

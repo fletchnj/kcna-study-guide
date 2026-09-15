@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: liveness-exec-demo
+  labels:
+    app: probe-demo
+    probe-type: liveness
+spec:
+  containers:
+    - name: liveness-tester
+      image: busybox:1.36
+      args:
+        - /bin/sh
+        - -c
+        - |
+          touch /tmp/healthy
+          echo "App started and healthy. Sleeping 25s before simulating crash..."
+          sleep 25
+          echo "Simulating application failure by removing /tmp/healthy!"
+          rm -rf /tmp/healthy
+          sleep 600
+      # KCNA Exam Highlight:
+      # Liveness probes detect when an application is stuck, deadlocked, or crashed.
+      # If the probe fails beyond failureThreshold, the kubelet KILLS and RESTARTS the container.
+      livenessProbe:
+        exec:
+          command:
+            - cat
+            - /tmp/healthy
+        initialDelaySeconds: 5
+        periodSeconds: 5
+        failureThreshold: 3

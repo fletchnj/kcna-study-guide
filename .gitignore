@@ -1,0 +1,19 @@
+# Operating System files
+.DS_Store
+Thumbs.db
+
+# Editor directories and files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary / test artifacts
+*.log
+scratch/
+__pycache__/
+*.pyc
+
+# Local kubernetes / secrets
+*.kubeconfig
+local-dev.env

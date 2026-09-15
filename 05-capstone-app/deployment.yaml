@@ -1,0 +1,200 @@
+---
+# 1. ConfigMap: Application Settings and Microservice Source Code
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: capstone-config
+  labels:
+    app.kubernetes.io/name: kcna-health-demo
+    app.kubernetes.io/part-of: kcna-capstone
+data:
+  APP_ENV: "production"
+  LOG_LEVEL: "INFO"
+  PORT: "8080"
+  app.py: |
+    import os, sys, json
+    from http.server import HTTPServer, BaseHTTPRequestHandler
+
+    IS_ALIVE = True
+    IS_READY = True
+
+    class Handler(BaseHTTPRequestHandler):
+        def _send(self, code, ctype, body):
+            self.send_response(code)
+            self.send_header('Content-Type', ctype)
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            self.wfile.write(body.encode('utf-8'))
+
+        def do_GET(self):
+            global IS_ALIVE, IS_READY
+            if self.path == '/healthz':
+                if IS_ALIVE:
+                    self._send(200, 'text/plain', 'OK: Container is healthy\n')
+                else:
+                    self._send(500, 'text/plain', 'ERROR: Liveness failure!\n')
+            elif self.path == '/ready':
+                if IS_READY:
+                    self._send(200, 'text/plain', 'OK: Pod ready for traffic\n')
+                else:
+                    self._send(503, 'text/plain', 'UNAVAILABLE: Pod not ready\n')
+            elif self.path == '/fail-live':
+                IS_ALIVE = False
+                self._send(200, 'text/plain', 'Liveness failure triggered. Container will restart soon!\n')
+            elif self.path == '/fail-ready':
+                IS_READY = False
+                self._send(200, 'text/plain', 'Readiness failure triggered. Removed from endpoints!\n')
+            elif self.path == '/restore':
+                IS_ALIVE = True
+                IS_READY = True
+                self._send(200, 'text/plain', 'Restored to healthy state.\n')
+            else:
+                db_p = os.getenv('DB_PASSWORD', 'unset')
+                masked = db_p[:3] + '***' if len(db_p) > 3 else '***'
+                data = {
+                    "app": "KCNA Capstone Health & Config Microservice",
+                    "status": {"is_alive": IS_ALIVE, "is_ready": IS_READY},
+                    "config": {
+                        "env": os.getenv('APP_ENV'),
+                        "log_level": os.getenv('LOG_LEVEL'),
+                        "port": os.getenv('PORT')
+                    },
+                    "secrets": {
+                        "db_user": os.getenv('DB_USER'),
+                        "db_password": masked,
+                        "has_api_key": bool(os.getenv('API_KEY'))
+                    }
+                }
+                self._send(200, 'application/json', json.dumps(data, indent=2) + '\n')
+
+    server = HTTPServer(('0.0.0.0', int(os.getenv('PORT', 8080))), Handler)
+    server.serve_forever()
+
+---
+# 2. Secret: Database Credentials & API Key
+apiVersion: v1
+kind: Secret
+metadata:
+  name: capstone-secrets
+  labels:
+    app.kubernetes.io/name: kcna-health-demo
+    app.kubernetes.io/part-of: kcna-capstone
+type: Opaque
+stringData:
+  DB_USER: "cloud_native_user"
+  DB_PASSWORD: "SuperSecurePassword987!"
+  API_KEY: "live-kcna-capstone-token"
+
+---
+# 3. Deployment: Combining ConfigMaps, Secrets, Labels, Annotations, and Probes
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kcna-health-demo
+  labels:
+    app.kubernetes.io/name: kcna-health-demo
+    app.kubernetes.io/part-of: kcna-capstone
+    app.kubernetes.io/version: "1.0.0"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: kcna-health-demo
+      tier: backend
+  template:
+    metadata:
+      # Labels used for Service endpoint matching and grouping
+      labels:
+        app: kcna-health-demo
+        tier: backend
+        env: production
+      # Annotations used for tooling, metrics, and documentation (not selectors)
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/healthz"
+        prometheus.io/port: "8080"
+        app.kubernetes.io/managed-by: "kubectl"
+        deployment.git/sha: "a1b2c3d4e5"
+        documentation.url: "https://kcna.study/health-demo"
+    spec:
+      containers:
+        - name: microservice
+          image: python:3.11-alpine
+          command: ["python3", "/app/app.py"]
+          ports:
+            - name: http
+              containerPort: 8080
+          
+          # Environment variables from ConfigMap
+          env:
+            - name: APP_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: capstone-config
+                  key: APP_ENV
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: capstone-config
+                  key: LOG_LEVEL
+            - name: PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: capstone-config
+                  key: PORT
+
+            # Environment variables from Secret
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: capstone-secrets
+                  key: DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: capstone-secrets
+                  key: DB_PASSWORD
+            - name: API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: capstone-secrets
+                  key: API_KEY
+
+          # Mount the python script from ConfigMap
+          volumeMounts:
+            - name: code-volume
+              mountPath: /app
+              readOnly: true
+
+          # Probe 1: Startup Probe - Protects slow starting container
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 3
+            failureThreshold: 10
+
+          # Probe 2: Liveness Probe - Restarts container on deadlock
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
+
+          # Probe 3: Readiness Probe - Directs traffic routing
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            periodSeconds: 3
+            timeoutSeconds: 2
+            failureThreshold: 2
+            successThreshold: 1
+
+      volumes:
+        - name: code-volume
+          configMap:
+            name: capstone-config

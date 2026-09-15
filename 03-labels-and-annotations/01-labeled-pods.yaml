@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-frontend-prod
+  labels:
+    app.kubernetes.io/name: web-portal
+    app: frontend
+    env: prod
+    tier: ui
+spec:
+  containers:
+    - name: nginx
+      image: nginx:1.25-alpine
+      ports:
+        - containerPort: 80
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-backend-prod
+  labels:
+    app.kubernetes.io/name: order-service
+    app: backend
+    env: prod
+    tier: api
+spec:
+  containers:
+    - name: nginx
+      image: nginx:1.25-alpine
+      ports:
+        - containerPort: 80
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-backend-dev
+  labels:
+    app.kubernetes.io/name: order-service
+    app: backend
+    env: dev
+    tier: api
+spec:
+  containers:
+    - name: nginx
+      image: nginx:1.25-alpine
+      ports:
+        - containerPort: 80
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-cache-prod
+  labels:
+    app.kubernetes.io/name: redis-cache
+    app: cache
+    env: prod
+    tier: data
+spec:
+  containers:
+    - name: redis
+      image: redis:7.2-alpine
+      ports:
+        - containerPort: 6379

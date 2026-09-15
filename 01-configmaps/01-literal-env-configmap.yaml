@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-env-config
+  labels:
+    app.kubernetes.io/name: kcna-configmap-demo
+    app.kubernetes.io/part-of: kcna-study-guide
+data:
+  APP_ENV: "production"
+  APP_PORT: "8080"
+  FEATURE_TOGGLE_DARKMODE: "true"
+  LOG_LEVEL: "INFO"

@@ -1,0 +1,68 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: configmap-demo-pod
+  labels:
+    app.kubernetes.io/name: kcna-configmap-demo
+    tier: test
+spec:
+  restartPolicy: Never
+  containers:
+    - name: app-consumer
+      image: busybox:1.36
+      command:
+        - /bin/sh
+        - -c
+        - |
+          echo "=== 1. Environment Variables from ConfigMap ==="
+          echo "APP_ENV: $APP_ENV"
+          echo "APP_PORT: $APP_PORT"
+          echo "FEATURE_TOGGLE_DARKMODE: $FEATURE_TOGGLE_DARKMODE"
+          echo "LOG_LEVEL: $LOG_LEVEL"
+          echo ""
+          echo "=== 2. Volume Mounted ConfigMap Files ==="
+          echo "--- Content of /etc/config/app.properties ---"
+          cat /etc/config/app.properties
+          echo ""
+          echo "--- Content of /etc/config/database.conf ---"
+          cat /etc/config/database.conf
+          echo ""
+          echo "--- Content of /etc/security/security-policy.json ---"
+          cat /etc/security/security-policy.json
+          echo ""
+          echo "Container running successfully. Sleeping to keep pod alive..."
+          sleep 3600
+      env:
+        # Pattern A: Specific Key Selection using valueFrom.configMapKeyRef
+        - name: APP_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: app-env-config
+              key: APP_ENV
+        - name: APP_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: app-env-config
+              key: APP_PORT
+
+      # Pattern B: Bulk Injection using envFrom
+      envFrom:
+        - configMapRef:
+            name: app-env-config
+
+      # Pattern C: Volume Mounting as files
+      volumeMounts:
+        - name: config-volume
+          mountPath: /etc/config
+          readOnly: true
+        - name: security-volume
+          mountPath: /etc/security
+          readOnly: true
+
+  volumes:
+    - name: config-volume
+      configMap:
+        name: app-volume-config
+    - name: security-volume
+      configMap:
+        name: immutable-security-config

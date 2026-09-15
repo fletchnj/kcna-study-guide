@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: immutable-security-config
+  labels:
+    app.kubernetes.io/name: kcna-configmap-demo
+    app.kubernetes.io/part-of: kcna-study-guide
+# KCNA Exam Highlight: Setting immutable: true locks the ConfigMap against updates.
+# Benefits:
+# 1. Protects against accidental bad modifications causing outages.
+# 2. Significantly reduces API server load by discontinuing kubelet watches on the object.
+immutable: true
+data:
+  security-policy.json: |
+    {
+      "tls_min_version": "TLSv1.3",
+      "cors_allowed_origins": ["https://kcna.cncf.io"],
+      "session_timeout_minutes": 15
+    }

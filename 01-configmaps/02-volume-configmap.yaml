@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-volume-config
+  labels:
+    app.kubernetes.io/name: kcna-configmap-demo
+    app.kubernetes.io/part-of: kcna-study-guide
+data:
+  # Multi-line configuration file mounted as /etc/config/app.properties
+  app.properties: |
+    # Application Configuration Settings
+    server.host=0.0.0.0
+    server.max-connections=1000
+    cache.enabled=true
+    cache.ttl-seconds=3600
+    metrics.endpoint=/metrics
+
+  # Additional configuration file mounted into the container
+  database.conf: |
+    db.pool.min=5
+    db.pool.max=20
+    db.timeout=30s

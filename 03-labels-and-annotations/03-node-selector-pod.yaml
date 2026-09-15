@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: os-targeted-pod
+  labels:
+    app: linux-worker
+    role: worker
+spec:
+  # KCNA Exam Highlight:
+  # nodeSelector is the simplest form of node constraint selection.
+  # It specifies a map of key-value pairs matching labels placed on Nodes.
+  nodeSelector:
+    kubernetes.io/os: linux
+  containers:
+    - name: worker
+      image: busybox:1.36
+      command: ["sh", "-c", "echo 'Running on a verified Linux node'; sleep 3600"]
